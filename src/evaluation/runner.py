@@ -4,12 +4,12 @@ import asyncio
 import json
 import os
 import re
-import pandas as pd
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
 
+import pandas as pd
 from tqdm import tqdm
 
 from src.core.orchestrator import CoComOrchestrator
@@ -92,12 +92,13 @@ def run_primevulctx_evaluation(
         dataset: List[Dict] = json.load(f)
 
     results: List[RepoResult] = []
-    print(f"[EvaluationRunner] Dispatching {len(dataset)} repos to {workers} worker processes...")
+    print(
+        f"[EvaluationRunner] Dispatching {len(dataset)} repos to {workers} worker processes..."
+    )
 
     with ProcessPoolExecutor(max_workers=workers) as executor:
         futures = {
-            executor.submit(process_single_repository, repo): repo
-            for repo in dataset
+            executor.submit(process_single_repository, repo): repo for repo in dataset
         }
         for future in tqdm(
             as_completed(futures), total=len(dataset), desc="Evaluating PrimeVulCTX"

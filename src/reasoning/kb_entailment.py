@@ -2,9 +2,10 @@
 
 import json
 import re
-import networkx as nx
 from enum import Enum
 from typing import Any, Dict, List, Tuple
+
+import networkx as nx
 
 
 class EvidenceState(str, Enum):
@@ -34,7 +35,9 @@ class KBEntailmentEngine:
             with open(self.kb_path, "r") as f:
                 return json.load(f).get("frameworks", {})
         except FileNotFoundError:
-            print(f"[KBEntailmentEngine] Warning: KB not found at {self.kb_path}. Defaulting to NEUTRAL.")
+            print(
+                f"[KBEntailmentEngine] Warning: KB not found at {self.kb_path}. Defaulting to NEUTRAL."
+            )
             return {}
 
     def evaluate(

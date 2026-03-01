@@ -1,7 +1,9 @@
 # File: src/reasoning/ledger_dag.py
 
+from typing import Dict, List, Set
+
 import networkx as nx
-from typing import List, Dict, Set
+
 from .kb_entailment import EvidenceState
 
 
@@ -21,7 +23,9 @@ class AssumptionLedgerDAG:
         self.dag: nx.DiGraph = nx.DiGraph()
         self.invalidated_hypotheses: Set[str] = set()
 
-    def register_hypothesis(self, hypothesis_id: str, assumptions: List[Dict[str, str]]) -> None:
+    def register_hypothesis(
+        self, hypothesis_id: str, assumptions: List[Dict[str, str]]
+    ) -> None:
         """
         Adds a vulnerability hypothesis and its required assumptions to the ledger.
         No-ops if the hypothesis is already registered.
@@ -55,7 +59,9 @@ class AssumptionLedgerDAG:
             KeyError: If ``assumption_id`` is not registered in the ledger.
         """
         if assumption_id not in self.dag:
-            raise KeyError(f"[AssumptionLedgerDAG] Unknown assumption ID: '{assumption_id}'")
+            raise KeyError(
+                f"[AssumptionLedgerDAG] Unknown assumption ID: '{assumption_id}'"
+            )
 
         current_state = self.dag.nodes[assumption_id]["state"]
 

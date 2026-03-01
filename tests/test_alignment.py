@@ -12,10 +12,10 @@ import pytest
 
 from src.core.alignment import CPGAlignmentLayer
 
-
 # ---------------------------------------------------------------------------
 # CPGAlignmentLayer
 # ---------------------------------------------------------------------------
+
 
 class TestCPGAlignmentLayer:
 
@@ -25,7 +25,9 @@ class TestCPGAlignmentLayer:
         MockManager.get_driver.return_value = mock_driver
 
         mock_session = MagicMock()
-        mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_driver.session.return_value.__enter__ = MagicMock(
+            return_value=mock_session
+        )
         mock_driver.session.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_session.run.return_value = [
@@ -48,7 +50,9 @@ class TestCPGAlignmentLayer:
         MockManager.get_driver.return_value = mock_driver
 
         mock_session = MagicMock()
-        mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_driver.session.return_value.__enter__ = MagicMock(
+            return_value=mock_session
+        )
         mock_driver.session.return_value.__exit__ = MagicMock(return_value=False)
         mock_session.run.return_value = []
 

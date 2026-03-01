@@ -12,12 +12,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.evaluation.runner import RepoResult, process_single_repository, run_primevulctx_evaluation
-
+from src.evaluation.runner import (RepoResult, process_single_repository,
+                                   run_primevulctx_evaluation)
 
 # ---------------------------------------------------------------------------
 # RepoResult
 # ---------------------------------------------------------------------------
+
 
 class TestRepoResult:
 
@@ -37,6 +38,7 @@ class TestRepoResult:
 # process_single_repository
 # ---------------------------------------------------------------------------
 
+
 class TestProcessSingleRepository:
 
     def _repo_data(self, tmp_path, gt=None):
@@ -54,7 +56,9 @@ class TestProcessSingleRepository:
         mock_orc.execute_reasoning_pipeline.return_value = ["CWE-89", "CWE-78"]
         MockOrch.return_value = mock_orc
 
-        result = process_single_repository(self._repo_data(tmp_path, gt=["CWE-89", "CWE-22"]))
+        result = process_single_repository(
+            self._repo_data(tmp_path, gt=["CWE-89", "CWE-22"])
+        )
 
         # TP: CWE-89 (in both), FP: CWE-78 (predicted not in GT), FN: CWE-22 (GT not predicted)
         assert result.tp == 1
@@ -104,6 +108,7 @@ class TestProcessSingleRepository:
 # run_primevulctx_evaluation — metric formulas
 # ---------------------------------------------------------------------------
 
+
 class TestMetricAggregation:
 
     def _write_dataset(self, tmp_path, data):
@@ -120,8 +125,18 @@ class TestMetricAggregation:
         ]
 
         dataset = [
-            {"repo_id": "r1", "path": "/x", "language": "python", "ground_truth_cves": []},
-            {"repo_id": "r2", "path": "/y", "language": "python", "ground_truth_cves": []},
+            {
+                "repo_id": "r1",
+                "path": "/x",
+                "language": "python",
+                "ground_truth_cves": [],
+            },
+            {
+                "repo_id": "r2",
+                "path": "/y",
+                "language": "python",
+                "ground_truth_cves": [],
+            },
         ]
         ds_path = self._write_dataset(tmp_path, dataset)
         out_csv = str(tmp_path / "out.csv")
@@ -130,10 +145,14 @@ class TestMetricAggregation:
         with patch("src.evaluation.runner.ProcessPoolExecutor") as MockPool:
             from concurrent.futures import Future
 
+            expected_results = [
+                RepoResult("r1", tp=3, fp=1, fn=1),
+                RepoResult("r2", tp=1, fp=0, fn=2),
+            ]
             futures = {}
             for i, repo in enumerate(dataset):
                 f = Future()
-                f.set_result(mock_process.side_effect[i])
+                f.set_result(expected_results[i])
                 futures[f] = repo
 
             mock_executor = MagicMock()
@@ -142,7 +161,9 @@ class TestMetricAggregation:
             mock_executor.submit.side_effect = list(futures.keys())
             MockPool.return_value = mock_executor
 
-            with patch("src.evaluation.runner.as_completed", return_value=list(futures.keys())):
+            with patch(
+                "src.evaluation.runner.as_completed", return_value=list(futures.keys())
+            ):
                 df = run_primevulctx_evaluation(ds_path, out_csv, workers=1)
 
         # Aggregates: TP=4, FP=1, FN=3
@@ -161,7 +182,14 @@ class TestMetricAggregation:
         """All FN (nothing predicted) must return 0.0 for Precision and FDR."""
         mock_process.return_value = RepoResult("r1", tp=0, fp=0, fn=5)
 
-        dataset = [{"repo_id": "r1", "path": "/x", "language": "python", "ground_truth_cves": []}]
+        dataset = [
+            {
+                "repo_id": "r1",
+                "path": "/x",
+                "language": "python",
+                "ground_truth_cves": [],
+            }
+        ]
         ds_path = self._write_dataset(tmp_path, dataset)
         out_csv = str(tmp_path / "z.csv")
 

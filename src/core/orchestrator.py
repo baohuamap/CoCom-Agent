@@ -7,11 +7,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
-from .alignment import CPGAlignmentLayer
 from src.graph.aacc_engine import AACCEngine
-from src.reasoning.kb_entailment import AssumptionType, EvidenceState, KBEntailmentEngine
+from src.reasoning.kb_entailment import (AssumptionType, EvidenceState,
+                                         KBEntailmentEngine)
 from src.reasoning.ledger_dag import AssumptionLedgerDAG
 from src.reasoning.llm_oracle import LedgerLLMOracle
+
+from .alignment import CPGAlignmentLayer
 
 
 @dataclass
@@ -105,7 +107,9 @@ class CoComOrchestrator:
         Returns the list of rule IDs whose hypotheses survived
         full VALIDATED verification.
         """
-        kb_path = Path(__file__).parent.parent.parent / "config" / f"{self.language}_kb.json"
+        kb_path = (
+            Path(__file__).parent.parent.parent / "config" / f"{self.language}_kb.json"
+        )
         aacc = AACCEngine()
         kb_engine = KBEntailmentEngine(str(kb_path))
         llm_oracle = LedgerLLMOracle()
@@ -114,7 +118,9 @@ class CoComOrchestrator:
         try:
             for hyp in self.initial_hypotheses:
                 if not hyp.joern_source_ids or not hyp.joern_sink_ids:
-                    print(f"[CoComOrchestrator] Skipping {hyp.rule_id}: alignment produced no nodes.")
+                    print(
+                        f"[CoComOrchestrator] Skipping {hyp.rule_id}: alignment produced no nodes."
+                    )
                     continue
 
                 # 1. Analysis-Aware Context Compression (AACC): G → G'
@@ -145,13 +151,17 @@ class CoComOrchestrator:
                 # 3. Ledger Verification Loop
                 for a in typed_assumptions:
                     # Fast Path: deterministic KB evaluation
-                    kb_res = kb_engine.evaluate(a.assumption_type, hyp.rule_id, self.language, g_prime)
+                    kb_res = kb_engine.evaluate(
+                        a.assumption_type, hyp.rule_id, self.language, g_prime
+                    )
                     if kb_res["state"] != EvidenceState.NEUTRAL.value:
                         ledger.update_state(a.id, kb_res["state"])
                     else:
                         # Slow Path: bounded LLM semantic oracle
                         g_prime_txt = aacc.format_for_llm(g_prime)
-                        llm_res = llm_oracle.evaluate_assumption(a.id, a.desc, g_prime_txt)
+                        llm_res = llm_oracle.evaluate_assumption(
+                            a.id, a.desc, g_prime_txt
+                        )
                         ledger.update_state(a.id, llm_res["state"])
         finally:
             aacc.close()
@@ -171,7 +181,8 @@ class CoComOrchestrator:
         cmd = [
             "joern-parse",
             str(self.repo_path),
-            "--output", str(self.cpg_path),
+            "--output",
+            str(self.cpg_path),
         ]
         print(f"[CoComOrchestrator] Running Joern on: {self.repo_path}")
         proc = await asyncio.create_subprocess_exec(
@@ -193,13 +204,17 @@ class CoComOrchestrator:
 
         # Step 1: Create the database from source
         create_cmd = [
-            "codeql", "database", "create",
+            "codeql",
+            "database",
+            "create",
             str(db_path),
             f"--language={self.language}",
             f"--source-root={self.repo_path}",
             "--overwrite",
         ]
-        print(f"[CoComOrchestrator] Building CodeQL database ({self.language}) from: {self.repo_path}")
+        print(
+            f"[CoComOrchestrator] Building CodeQL database ({self.language}) from: {self.repo_path}"
+        )
         proc = await asyncio.create_subprocess_exec(
             *create_cmd,
             stdout=asyncio.subprocess.PIPE,
@@ -211,7 +226,9 @@ class CoComOrchestrator:
 
         # Step 2: Analyze the database
         analyze_cmd = [
-            "codeql", "database", "analyze",
+            "codeql",
+            "database",
+            "analyze",
             "--format=sarif-latest",
             f"--output={self.sarif_path}",
             str(db_path),
@@ -240,7 +257,9 @@ class CoComOrchestrator:
         source+sink coordinates are skipped.
         """
         if not self.sarif_path.exists():
-            print(f"[CoComOrchestrator] SARIF not found at {self.sarif_path}; skipping parse.")
+            print(
+                f"[CoComOrchestrator] SARIF not found at {self.sarif_path}; skipping parse."
+            )
             return
 
         with open(self.sarif_path) as f:

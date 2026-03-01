@@ -15,16 +15,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.core.orchestrator import (
-    CodeLocation,
-    CoComOrchestrator,
-    VulnerabilityHypothesis,
-)
-
+from src.core.orchestrator import (CoComOrchestrator, CodeLocation,
+                                   VulnerabilityHypothesis)
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def orchestrator(tmp_path):
@@ -52,7 +49,9 @@ def sarif_fixture(tmp_path):
                                             {
                                                 "location": {
                                                     "physicalLocation": {
-                                                        "artifactLocation": {"uri": "app/views.py"},
+                                                        "artifactLocation": {
+                                                            "uri": "app/views.py"
+                                                        },
                                                         "region": {"startLine": 42},
                                                     }
                                                 }
@@ -60,7 +59,9 @@ def sarif_fixture(tmp_path):
                                             {
                                                 "location": {
                                                     "physicalLocation": {
-                                                        "artifactLocation": {"uri": "app/db.py"},
+                                                        "artifactLocation": {
+                                                            "uri": "app/db.py"
+                                                        },
                                                         "region": {"startLine": 17},
                                                     }
                                                 }
@@ -85,6 +86,7 @@ def sarif_fixture(tmp_path):
 # Validation
 # ---------------------------------------------------------------------------
 
+
 class TestCoComOrchestratorInit:
 
     def test_invalid_language_raises(self, tmp_path):
@@ -105,6 +107,7 @@ class TestCoComOrchestratorInit:
 # ---------------------------------------------------------------------------
 # SARIF Parsing
 # ---------------------------------------------------------------------------
+
 
 class TestSARIFParsing:
 
@@ -134,7 +137,9 @@ class TestSARIFParsing:
                                                 {
                                                     "location": {
                                                         "physicalLocation": {
-                                                            "artifactLocation": {"uri": "app.py"},
+                                                            "artifactLocation": {
+                                                                "uri": "app.py"
+                                                            },
                                                             "region": {"startLine": 5},
                                                         }
                                                     }
@@ -203,18 +208,22 @@ class TestSARIFParsing:
 # Alignment (mocked Neo4j)
 # ---------------------------------------------------------------------------
 
+
 class TestExtractAndAlign:
 
     @patch("src.core.orchestrator.CPGAlignmentLayer")
-    def test_alignment_populates_node_ids(self, MockAligner, orchestrator, sarif_fixture):
+    def test_alignment_populates_node_ids(
+        self, MockAligner, orchestrator, sarif_fixture
+    ):
         orchestrator.sarif_path = sarif_fixture
 
         mock_aligner = MagicMock()
         mock_aligner.get_joern_nodes.side_effect = [{101, 102}, {201}]
         MockAligner.return_value = mock_aligner
 
-        with patch.object(orchestrator, "_run_joern", new_callable=AsyncMock), \
-             patch.object(orchestrator, "_run_codeql", new_callable=AsyncMock):
+        with patch.object(
+            orchestrator, "_run_joern", new_callable=AsyncMock
+        ), patch.object(orchestrator, "_run_codeql", new_callable=AsyncMock):
             asyncio.run(orchestrator.extract_and_align())
 
         assert len(orchestrator.initial_hypotheses) == 1
@@ -227,6 +236,7 @@ class TestExtractAndAlign:
 # ---------------------------------------------------------------------------
 # Reasoning Pipeline (mocked external systems)
 # ---------------------------------------------------------------------------
+
 
 class TestReasoningPipeline:
 
@@ -277,6 +287,7 @@ class TestReasoningPipeline:
 # KB evaluated before LLM (Rule 2 enforcement)
 # ---------------------------------------------------------------------------
 
+
 class TestKBBeforeLLM:
 
     @patch("src.core.orchestrator.LedgerLLMOracle")
@@ -302,7 +313,10 @@ class TestKBBeforeLLM:
         MockAACCEngine.return_value = mock_aacc
         mock_kb = MagicMock()
         # KB always returns VALIDATED — LLM must never be called
-        mock_kb.evaluate.return_value = {"state": "validated", "justification": "KB match"}
+        mock_kb.evaluate.return_value = {
+            "state": "validated",
+            "justification": "KB match",
+        }
         MockKB.return_value = mock_kb
         mock_ledger = MagicMock()
         mock_ledger.collect_non_invalid.return_value = ["CWE-89"]
@@ -336,13 +350,19 @@ class TestKBBeforeLLM:
         mock_aacc = MagicMock()
         MockAACCEngine.return_value = mock_aacc
         mock_kb = MagicMock()
-        mock_kb.evaluate.return_value = {"state": "neutral", "justification": "no match"}
+        mock_kb.evaluate.return_value = {
+            "state": "neutral",
+            "justification": "no match",
+        }
         MockKB.return_value = mock_kb
         mock_ledger = MagicMock()
         mock_ledger.collect_non_invalid.return_value = []
         MockLedger.return_value = mock_ledger
         mock_oracle = MagicMock()
-        mock_oracle.evaluate_assumption.return_value = {"state": "neutral", "justification": ""}
+        mock_oracle.evaluate_assumption.return_value = {
+            "state": "neutral",
+            "justification": "",
+        }
         MockOracle.return_value = mock_oracle
 
         orc.execute_reasoning_pipeline()

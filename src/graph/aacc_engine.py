@@ -1,7 +1,8 @@
 # File: src/graph/aacc_engine.py
 
-import networkx as nx
 from typing import List
+
+import networkx as nx
 
 from src.graph.neo4j_manager import Neo4jConnectionManager
 
@@ -112,6 +113,8 @@ class AACCEngine:
                 prompt_context += f"\nFile: {current_file}\n"
 
             line_str = f"L{data['line']}" if data.get("line") else "L?"
-            prompt_context += f"[{line_str}] ({data.get('type', '')}): {data.get('code', '')}\n"
+            prompt_context += (
+                f"[{line_str}] ({data.get('type', '')}): {data.get('code', '')}\n"
+            )
 
         return prompt_context
