@@ -146,8 +146,16 @@ class TestStructuralSafety:
         """Registering the same hypothesis_id twice must not duplicate nodes."""
         dag.register_hypothesis("H1", [{"id": "A1", "desc": "x"}])
         dag.register_hypothesis("H1", [{"id": "A2", "desc": "y"}])  # second call is no-op
-        assert list(dag.dag.nodes) == ["H1", "A1"]  # A2 was not added
+        assert set(dag.dag.nodes) == {"H1", "A1"}  # A2 was not added
 
+    def test_update_state_unknown_id_raises(self, dag):
+        """update_state must raise KeyError for an assumption ID not in the ledger."""
+        with pytest.raises(KeyError, match="Unknown assumption ID"):
+            dag.update_state("nonexistent", "validated")
+    def test_update_state_unknown_id_raises(self, dag):
+        """update_state must raise KeyError for an assumption ID not in the ledger."""
+        with pytest.raises(KeyError, match="unknown_assumption"):
+            dag.update_state("unknown_assumption", EvidenceState.VALIDATED.value)
     def test_update_unknown_node_is_silently_ignored(self, dag):
         """update_state on a non-existent assumption must be a no-op."""
         dag.update_state("nonexistent", EvidenceState.UNDERMINED.value)  # must not raise

@@ -1,9 +1,9 @@
 # File: src/graph/aacc_engine.py
 
-import os
 import networkx as nx
-from neo4j import GraphDatabase
 from typing import List
+
+from src.graph.neo4j_manager import Neo4jConnectionManager
 
 
 class AACCEngine:
@@ -12,22 +12,28 @@ class AACCEngine:
     Executes reachability queries in Neo4j and returns a compressed NetworkX graph.
     """
 
-    def __init__(self):
-        uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-        user = os.getenv("NEO4J_USER", "neo4j")
-        password = os.getenv("NEO4J_PASSWORD", "cocom_secure_password")
-        self.driver = GraphDatabase.driver(uri, auth=(user, password))
+    def __init__(self, depth_limit: int = 15):
+        """
+        Args:
+            depth_limit: Maximum traversal depth for forward/backward reachability.
+                         Default of 15 is empirically sufficient for typical
+                         inter-procedural taint flows without over-capturing.
+        """
+        self.driver = Neo4jConnectionManager.get_driver()
+        self.depth_limit = depth_limit
 
-    def close(self):
-        self.driver.close()
+    def close(self) -> None:
+        """Closes the shared Neo4j driver via the connection manager."""
+        Neo4jConnectionManager.close()
 
     def extract_compressed_graph(
         self,
         source_ids: List[int],
         sink_ids: List[int],
-        depth_limit: int = 15,
+        depth_limit: int | None = None,
     ) -> nx.DiGraph:
         """Computes R_s ∩ R_t and returns the induced subgraph G'."""
+        effective_depth = depth_limit if depth_limit is not None else self.depth_limit
         query = """
         // Forward Reachability
         MATCH (source) WHERE id(source) IN $source_ids
@@ -45,8 +51,8 @@ class AACCEngine:
         }) YIELD node AS backward_node
         WITH Rs, collect(DISTINCT id(backward_node)) AS Rt
 
-        // Intersection
-        WITH [node_id IN Rs WHERE node_id IN Rt] AS corridor_node_ids
+        // Intersection via APOC (O(n) vs O(n²) list comprehension)
+        WITH apoc.coll.intersection(Rs, Rt) AS corridor_node_ids
 
         // Induced Subgraph Extraction
         MATCH (n) WHERE id(n) IN corridor_node_ids
@@ -67,7 +73,7 @@ class AACCEngine:
                 query,
                 source_ids=source_ids,
                 sink_ids=sink_ids,
-                depth_limit=depth_limit,
+                depth_limit=effective_depth,
             )
 
             for record in result:
@@ -95,16 +101,17 @@ class AACCEngine:
         prompt_context = "--- COMPRESSED REPOSITORY CONTEXT (G') ---\n"
         sorted_nodes = sorted(
             G_prime.nodes(data=True),
-            key=lambda x: (x[1].get("file", ""), x[1].get("line", 0) or 0),
+            key=lambda x: (x[1].get("file") or "", x[1].get("line", 0) or 0),
         )
 
         current_file = ""
         for node_id, data in sorted_nodes:
-            if data["file"] != current_file:
-                current_file = data["file"]
+            file_val = data.get("file") or "unknown"
+            if file_val != current_file:
+                current_file = file_val
                 prompt_context += f"\nFile: {current_file}\n"
 
-            line_str = f"L{data['line']}" if data["line"] else "L?"
-            prompt_context += f"[{line_str}] ({data['type']}): {data['code']}\n"
+            line_str = f"L{data['line']}" if data.get("line") else "L?"
+            prompt_context += f"[{line_str}] ({data.get('type', '')}): {data.get('code', '')}\n"
 
         return prompt_context

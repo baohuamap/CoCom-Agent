@@ -111,49 +111,48 @@ class CoComOrchestrator:
         llm_oracle = LedgerLLMOracle()
         ledger = AssumptionLedgerDAG()
 
-          try:
-          for hyp in self.initial_hypotheses:
-            if not hyp.joern_source_ids or not hyp.joern_sink_ids:
-                print(f"[CoComOrchestrator] Skipping {hyp.rule_id}: alignment produced no nodes.")
-                continue
+        try:
+            for hyp in self.initial_hypotheses:
+                if not hyp.joern_source_ids or not hyp.joern_sink_ids:
+                    print(f"[CoComOrchestrator] Skipping {hyp.rule_id}: alignment produced no nodes.")
+                    continue
 
-            # 1. Analysis-Aware Context Compression (AACC): G → G'
-            g_prime = aacc.extract_compressed_graph(
-                list(hyp.joern_source_ids), list(hyp.joern_sink_ids)
-            )
+                # 1. Analysis-Aware Context Compression (AACC): G → G'
+                g_prime = aacc.extract_compressed_graph(
+                    list(hyp.joern_source_ids), list(hyp.joern_sink_ids)
+                )
 
-            # 2. Hypothesis Generation — two assumptions per flow.
-            # NOTE: These are CWE-generic scaffolding assumptions valid for most taint flows.
-            # A full per-CWE proof obligation model would require CWE-specific assumption sets.
-            typed_assumptions = [
-                TypedAssumption(
-                    id=f"{hyp.rule_id}_flow",
-                    desc="Feasible data flow exists from source to sink.",
-                    assumption_type=AssumptionType.REACHES_SINK,
-                ),
-                TypedAssumption(
-                    id=f"{hyp.rule_id}_nosan",
-                    desc="No valid sanitizer interrupts the data flow.",
-                    assumption_type=AssumptionType.MISSING_SANITIZER,
-                ),
-            ]
-            ledger.register_hypothesis(
-                hyp.rule_id,
-                [{"id": a.id, "desc": a.desc} for a in typed_assumptions],
-            )
+                # 2. Hypothesis Generation — two assumptions per flow.
+                # NOTE: These are CWE-generic scaffolding assumptions valid for most taint flows.
+                # A full per-CWE proof obligation model would require CWE-specific assumption sets.
+                typed_assumptions = [
+                    TypedAssumption(
+                        id=f"{hyp.rule_id}_flow",
+                        desc="Feasible data flow exists from source to sink.",
+                        assumption_type=AssumptionType.REACHES_SINK,
+                    ),
+                    TypedAssumption(
+                        id=f"{hyp.rule_id}_nosan",
+                        desc="No valid sanitizer interrupts the data flow.",
+                        assumption_type=AssumptionType.MISSING_SANITIZER,
+                    ),
+                ]
+                ledger.register_hypothesis(
+                    hyp.rule_id,
+                    [{"id": a.id, "desc": a.desc} for a in typed_assumptions],
+                )
 
-            # 3. Ledger Verification Loop
-            for a in typed_assumptions:
-                # Fast Path: deterministic KB evaluation
-                kb_res = kb_engine.evaluate(a.assumption_type, hyp.rule_id, self.language, g_prime)
-                if kb_res["state"] != EvidenceState.NEUTRAL.value:
-                    ledger.update_state(a.id, kb_res["state"])
-                else:
-                    # Slow Path: bounded LLM semantic oracle
-                    g_prime_txt = aacc.format_for_llm(g_prime)
-                    llm_res = llm_oracle.evaluate_assumption(a.id, a.desc, g_prime_txt)
-                    ledger.update_state(a.id, llm_res["state"])
-
+                # 3. Ledger Verification Loop
+                for a in typed_assumptions:
+                    # Fast Path: deterministic KB evaluation
+                    kb_res = kb_engine.evaluate(a.assumption_type, hyp.rule_id, self.language, g_prime)
+                    if kb_res["state"] != EvidenceState.NEUTRAL.value:
+                        ledger.update_state(a.id, kb_res["state"])
+                    else:
+                        # Slow Path: bounded LLM semantic oracle
+                        g_prime_txt = aacc.format_for_llm(g_prime)
+                        llm_res = llm_oracle.evaluate_assumption(a.id, a.desc, g_prime_txt)
+                        ledger.update_state(a.id, llm_res["state"])
         finally:
             aacc.close()
 

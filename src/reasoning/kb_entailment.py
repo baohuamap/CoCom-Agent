@@ -4,7 +4,7 @@ import json
 import re
 import networkx as nx
 from enum import Enum
-from typing import Dict, Any
+from typing import Any, Dict, List, Tuple
 
 
 class EvidenceState(str, Enum):
@@ -77,11 +77,17 @@ class KBEntailmentEngine:
         A matched sanitizer undermines the assumption that NO sanitizer exists.
         """
         sanitizers = rules.get("sanitizers", {}).get(cwe, [])
+        if not sanitizers:
+            return {
+                "state": EvidenceState.NEUTRAL.value,
+                "justification": "No deterministic sanitizers found.",
+            }
+        nodes_by_type: Dict[str, List[Tuple[int, Dict]]] = {}
         for node_id, data in g_prime.nodes(data=True):
-            for sanitizer in sanitizers:
-                if data.get("type") == sanitizer["node_type"] and re.search(
-                    sanitizer["pattern"], data.get("code", "")
-                ):
+            nodes_by_type.setdefault(data.get("type", ""), []).append((node_id, data))
+        for sanitizer in sanitizers:
+            for node_id, data in nodes_by_type.get(sanitizer["node_type"], []):
+                if re.search(sanitizer["pattern"], data.get("code", "")):
                     return {
                         "state": EvidenceState.UNDERMINED.value,
                         "justification": (
@@ -102,11 +108,17 @@ class KBEntailmentEngine:
         A matched sink validates the assumption that taint reaches a sink.
         """
         sinks = rules.get("sinks", {}).get(cwe, [])
+        if not sinks:
+            return {
+                "state": EvidenceState.NEUTRAL.value,
+                "justification": "No deterministic sinks found.",
+            }
+        nodes_by_type: Dict[str, List[Tuple[int, Dict]]] = {}
         for node_id, data in g_prime.nodes(data=True):
-            for sink in sinks:
-                if data.get("type") == sink["node_type"] and re.search(
-                    sink["pattern"], data.get("code", "")
-                ):
+            nodes_by_type.setdefault(data.get("type", ""), []).append((node_id, data))
+        for sink in sinks:
+            for node_id, data in nodes_by_type.get(sink["node_type"], []):
+                if re.search(sink["pattern"], data.get("code", "")):
                     return {
                         "state": EvidenceState.VALIDATED.value,
                         "justification": (

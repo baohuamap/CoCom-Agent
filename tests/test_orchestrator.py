@@ -37,26 +37,38 @@ def orchestrator(tmp_path):
 
 @pytest.fixture
 def sarif_fixture(tmp_path):
-    """Writes a minimal two-location SARIF file and returns its path."""
+    """Writes a minimal codeFlows SARIF file and returns its path."""
     sarif = {
         "runs": [
             {
                 "results": [
                     {
                         "ruleId": "CWE-89",
-                        "locations": [
+                        "codeFlows": [
                             {
-                                "physicalLocation": {
-                                    "artifactLocation": {"uri": "app/views.py"},
-                                    "region": {"startLine": 42},
-                                }
-                            },
-                            {
-                                "physicalLocation": {
-                                    "artifactLocation": {"uri": "app/db.py"},
-                                    "region": {"startLine": 17},
-                                }
-                            },
+                                "threadFlows": [
+                                    {
+                                        "locations": [
+                                            {
+                                                "location": {
+                                                    "physicalLocation": {
+                                                        "artifactLocation": {"uri": "app/views.py"},
+                                                        "region": {"startLine": 42},
+                                                    }
+                                                }
+                                            },
+                                            {
+                                                "location": {
+                                                    "physicalLocation": {
+                                                        "artifactLocation": {"uri": "app/db.py"},
+                                                        "region": {"startLine": 17},
+                                                    }
+                                                }
+                                            },
+                                        ]
+                                    }
+                                ]
+                            }
                         ],
                     }
                 ]
@@ -107,18 +119,29 @@ class TestSARIFParsing:
         assert hyp.sink.line_number == 17
 
     def test_parse_sarif_skips_single_location(self, orchestrator, tmp_path):
+        """A codeFlow with only one step produces no hypothesis (need source + sink)."""
         sarif = {
             "runs": [
                 {
                     "results": [
                         {
                             "ruleId": "CWE-78",
-                            "locations": [
+                            "codeFlows": [
                                 {
-                                    "physicalLocation": {
-                                        "artifactLocation": {"uri": "app.py"},
-                                        "region": {"startLine": 5},
-                                    }
+                                    "threadFlows": [
+                                        {
+                                            "locations": [
+                                                {
+                                                    "location": {
+                                                        "physicalLocation": {
+                                                            "artifactLocation": {"uri": "app.py"},
+                                                            "region": {"startLine": 5},
+                                                        }
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    ]
                                 }
                             ],
                         }
@@ -131,6 +154,44 @@ class TestSARIFParsing:
         p.write_text(json.dumps(sarif))
         orchestrator._parse_sarif()
         assert len(orchestrator.initial_hypotheses) == 0
+
+    def test_parse_sarif_fallback_to_related_locations(self, orchestrator, tmp_path):
+        """When codeFlows is absent, relatedLocations[0]+locations[0] is used."""
+        sarif = {
+            "runs": [
+                {
+                    "results": [
+                        {
+                            "ruleId": "CWE-78",
+                            "relatedLocations": [
+                                {
+                                    "physicalLocation": {
+                                        "artifactLocation": {"uri": "app/source.py"},
+                                        "region": {"startLine": 10},
+                                    }
+                                }
+                            ],
+                            "locations": [
+                                {
+                                    "physicalLocation": {
+                                        "artifactLocation": {"uri": "app/sink.py"},
+                                        "region": {"startLine": 20},
+                                    }
+                                }
+                            ],
+                        }
+                    ]
+                }
+            ]
+        }
+        p = orchestrator.sarif_path
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(sarif))
+        orchestrator._parse_sarif()
+        assert len(orchestrator.initial_hypotheses) == 1
+        hyp = orchestrator.initial_hypotheses[0]
+        assert hyp.source.line_number == 10
+        assert hyp.sink.line_number == 20
 
     def test_parse_sarif_missing_file_is_noop(self, orchestrator):
         orchestrator.sarif_path = Path("/nonexistent/path.sarif")
@@ -210,3 +271,81 @@ class TestReasoningPipeline:
 
         mock_aacc.extract_compressed_graph.assert_not_called()
         assert result == []
+
+
+# ---------------------------------------------------------------------------
+# KB evaluated before LLM (Rule 2 enforcement)
+# ---------------------------------------------------------------------------
+
+class TestKBBeforeLLM:
+
+    @patch("src.core.orchestrator.LedgerLLMOracle")
+    @patch("src.core.orchestrator.AssumptionLedgerDAG")
+    @patch("src.core.orchestrator.KBEntailmentEngine")
+    @patch("src.core.orchestrator.AACCEngine")
+    def test_llm_not_called_when_kb_returns_non_neutral(
+        self, MockAACCEngine, MockKB, MockLedger, MockOracle, tmp_path
+    ):
+        """LLM oracle must NOT be invoked when KBEntailmentEngine returns a definitive state."""
+        orc = CoComOrchestrator(str(tmp_path), str(tmp_path / "w"), language="python")
+        orc.initial_hypotheses = [
+            VulnerabilityHypothesis(
+                rule_id="CWE-89",
+                source=CodeLocation("a.py", 1),
+                sink=CodeLocation("b.py", 2),
+                joern_source_ids={1},
+                joern_sink_ids={2},
+            )
+        ]
+
+        mock_aacc = MagicMock()
+        MockAACCEngine.return_value = mock_aacc
+        mock_kb = MagicMock()
+        # KB always returns VALIDATED — LLM must never be called
+        mock_kb.evaluate.return_value = {"state": "validated", "justification": "KB match"}
+        MockKB.return_value = mock_kb
+        mock_ledger = MagicMock()
+        mock_ledger.collect_non_invalid.return_value = ["CWE-89"]
+        MockLedger.return_value = mock_ledger
+        mock_oracle = MagicMock()
+        MockOracle.return_value = mock_oracle
+
+        orc.execute_reasoning_pipeline()
+
+        mock_oracle.evaluate_assumption.assert_not_called()
+
+    @patch("src.core.orchestrator.LedgerLLMOracle")
+    @patch("src.core.orchestrator.AssumptionLedgerDAG")
+    @patch("src.core.orchestrator.KBEntailmentEngine")
+    @patch("src.core.orchestrator.AACCEngine")
+    def test_llm_called_when_kb_returns_neutral(
+        self, MockAACCEngine, MockKB, MockLedger, MockOracle, tmp_path
+    ):
+        """LLM oracle MUST be invoked when KBEntailmentEngine returns NEUTRAL."""
+        orc = CoComOrchestrator(str(tmp_path), str(tmp_path / "w"), language="python")
+        orc.initial_hypotheses = [
+            VulnerabilityHypothesis(
+                rule_id="CWE-89",
+                source=CodeLocation("a.py", 1),
+                sink=CodeLocation("b.py", 2),
+                joern_source_ids={1},
+                joern_sink_ids={2},
+            )
+        ]
+
+        mock_aacc = MagicMock()
+        MockAACCEngine.return_value = mock_aacc
+        mock_kb = MagicMock()
+        mock_kb.evaluate.return_value = {"state": "neutral", "justification": "no match"}
+        MockKB.return_value = mock_kb
+        mock_ledger = MagicMock()
+        mock_ledger.collect_non_invalid.return_value = []
+        MockLedger.return_value = mock_ledger
+        mock_oracle = MagicMock()
+        mock_oracle.evaluate_assumption.return_value = {"state": "neutral", "justification": ""}
+        MockOracle.return_value = mock_oracle
+
+        orc.execute_reasoning_pipeline()
+
+        # Two assumptions per hypothesis → oracle called twice
+        assert mock_oracle.evaluate_assumption.call_count == 2

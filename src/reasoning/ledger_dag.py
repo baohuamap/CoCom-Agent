@@ -50,9 +50,12 @@ class AssumptionLedgerDAG:
         Monotonicity constraints:
         - UNDERMINED is terminal: once set it can never change.
         - NEUTRAL transitions are no-ops (evidence is insufficient to commit).
+
+        Raises:
+            KeyError: If ``assumption_id`` is not registered in the ledger.
         """
         if assumption_id not in self.dag:
-            return
+            raise KeyError(f"[AssumptionLedgerDAG] Unknown assumption ID: '{assumption_id}'")
 
         current_state = self.dag.nodes[assumption_id]["state"]
 

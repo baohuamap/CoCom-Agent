@@ -3,6 +3,7 @@
 import asyncio
 import json
 import os
+import re
 import pandas as pd
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -40,7 +41,8 @@ def process_single_repository(repo_data: Dict) -> RepoResult:
     result = RepoResult(repo_id=repo_id)
 
     try:
-        working_dir = f"/tmp/cocom_eval/{repo_id}"
+        safe_id = re.sub(r"[^a-zA-Z0-9_-]", "_", repo_id)
+        working_dir = f"/tmp/cocom_eval/{safe_id}"
         os.makedirs(working_dir, exist_ok=True)
 
         orchestrator = CoComOrchestrator(

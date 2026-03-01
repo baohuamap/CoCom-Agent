@@ -1,7 +1,7 @@
 # File: src/reasoning/llm_oracle.py
 
 import json
-from openai import OpenAI
+from openai import APITimeoutError, AuthenticationError, OpenAI, PermissionDeniedError, RateLimitError
 from typing import Dict, Any
 from .kb_entailment import EvidenceState
 
@@ -60,6 +60,7 @@ class LedgerLLMOracle:
                     },
                 ],
                 temperature=0.0,  # Absolute determinism
+                timeout=60,
             )
             parsed = json.loads(response.choices[0].message.content)
 
@@ -73,7 +74,18 @@ class LedgerLLMOracle:
                 "state": state_val,
                 "justification": parsed.get("justification", "No justification provided."),
             }
+        except (AuthenticationError, PermissionDeniedError) as e:
+            # Unrecoverable configuration errors — re-raise immediately.
+            raise
+        except (RateLimitError, APITimeoutError) as e:
+            print(f"[LedgerLLMOracle] Transient API error for '{assumption_id}': {e}")
+            return {
+                "assumption_id": assumption_id,
+                "state": EvidenceState.NEUTRAL.value,
+                "justification": str(e),
+            }
         except Exception as e:
+            print(f"[LedgerLLMOracle] Unexpected error for '{assumption_id}': {e}")
             return {
                 "assumption_id": assumption_id,
                 "state": EvidenceState.NEUTRAL.value,
