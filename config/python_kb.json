@@ -1,0 +1,81 @@
+{
+  "language": "python",
+  "version": "3.11",
+  "frameworks": {
+    "django": {
+      "sanitizers": {
+        "CWE-89": [
+          { "node_type": "Call", "pattern": "\\.escape\\(|mark_safe|parameterized|ORM\\.filter" },
+          { "node_type": "Call", "pattern": "django\\.db\\.models\\.query|Q\\(" }
+        ],
+        "CWE-79": [
+          { "node_type": "Call", "pattern": "escape\\(|mark_safe|bleach\\.clean" },
+          { "node_type": "Identifier", "pattern": "autoescape" }
+        ],
+        "CWE-22": [
+          { "node_type": "Call", "pattern": "os\\.path\\.abspath|Path\\(.*\\)\\.resolve|safe_join" }
+        ],
+        "CWE-78": [
+          { "node_type": "Call", "pattern": "shlex\\.quote|pipes\\.quote" }
+        ]
+      },
+      "sinks": {
+        "CWE-89": [
+          { "node_type": "Call", "pattern": "cursor\\.execute\\(|connection\\.execute\\(" }
+        ],
+        "CWE-79": [
+          { "node_type": "Call", "pattern": "HttpResponse\\(|render\\(|render_to_response\\(" }
+        ],
+        "CWE-22": [
+          { "node_type": "Call", "pattern": "open\\(|os\\.path\\.join\\(|Path\\(" }
+        ],
+        "CWE-78": [
+          { "node_type": "Call", "pattern": "os\\.system\\(|subprocess\\.run\\(|subprocess\\.Popen\\(" }
+        ]
+      }
+    },
+    "flask": {
+      "sanitizers": {
+        "CWE-89": [
+          { "node_type": "Call", "pattern": "db\\.session\\.execute|text\\(.*:" },
+          { "node_type": "Call", "pattern": "sqlalchemy.*filter_by|sqlalchemy.*filter\\(" }
+        ],
+        "CWE-79": [
+          { "node_type": "Call", "pattern": "escape\\(|Markup\\.escape|bleach\\.clean" }
+        ],
+        "CWE-22": [
+          { "node_type": "Call", "pattern": "safe_join\\(|os\\.path\\.abspath" }
+        ],
+        "CWE-78": [
+          { "node_type": "Call", "pattern": "shlex\\.quote\\(" }
+        ]
+      },
+      "sinks": {
+        "CWE-89": [
+          { "node_type": "Call", "pattern": "db\\.engine\\.execute\\(|cursor\\.execute\\(" }
+        ],
+        "CWE-79": [
+          { "node_type": "Call", "pattern": "render_template\\(|make_response\\(|Response\\(" }
+        ],
+        "CWE-22": [
+          { "node_type": "Call", "pattern": "send_file\\(|send_from_directory\\(|open\\(" }
+        ],
+        "CWE-78": [
+          { "node_type": "Call", "pattern": "os\\.system\\(|subprocess\\." }
+        ]
+      }
+    },
+    "generic": {
+      "sanitizers": {
+        "CWE-502": [
+          { "node_type": "Call", "pattern": "json\\.loads\\(|ast\\.literal_eval\\(" }
+        ]
+      },
+      "sinks": {
+        "CWE-502": [
+          { "node_type": "Call", "pattern": "pickle\\.loads\\(|pickle\\.load\\(|yaml\\.load\\(" }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "language": "java",
+  "version": "17",
+  "frameworks": {
+    "spring": {
+      "sanitizers": {
+        "CWE-89": [
+          { "node_type": "Call", "pattern": "JdbcTemplate\\.query|NamedParameterJdbcTemplate|@Query.*:" },
+          { "node_type": "Call", "pattern": "PreparedStatement|createQuery\\(.*:" }
+        ],
+        "CWE-79": [
+          { "node_type": "Call", "pattern": "HtmlUtils\\.htmlEscape|StringEscapeUtils\\.escapeHtml|@ResponseBody" },
+          { "node_type": "Identifier", "pattern": "th:text=|c:out" }
+        ],
+        "CWE-22": [
+          { "node_type": "Call", "pattern": "Paths\\.get.*normalize|FilenameUtils\\.getName" }
+        ],
+        "CWE-78": [
+          { "node_type": "Call", "pattern": "ProcessBuilder\\(Arrays\\.asList" }
+        ]
+      },
+      "sinks": {
+        "CWE-89": [
+          { "node_type": "Call", "pattern": "Statement\\.execute|createNativeQuery\\(|executeQuery\\(" }
+        ],
+        "CWE-79": [
+          { "node_type": "Call", "pattern": "ResponseEntity\\.ok\\(|response\\.getWriter\\(|ModelAndView\\(" }
+        ],
+        "CWE-22": [
+          { "node_type": "Call", "pattern": "new File\\(|Paths\\.get\\(|FileInputStream\\(" }
+        ],
+        "CWE-78": [
+          { "node_type": "Call", "pattern": "Runtime\\.getRuntime\\(\\.exec|ProcessBuilder\\(" }
+        ]
+      }
+    },
+    "jakarta": {
+      "sanitizers": {
+        "CWE-89": [
+          { "node_type": "Call", "pattern": "PreparedStatement|createNamedQuery" },
+          { "node_type": "Call", "pattern": "CriteriaBuilder|TypedQuery" }
+        ],
+        "CWE-79": [
+          { "node_type": "Call", "pattern": "ESAPI\\.encoder\\(|encodeForHTML" }
+        ],
+        "CWE-78": [
+          { "node_type": "Call", "pattern": "Arrays\\.asList.*ProcessBuilder" }
+        ]
+      },
+      "sinks": {
+        "CWE-89": [
+          { "node_type": "Call", "pattern": "em\\.createQuery\\(|executeUpdate\\(" }
+        ],
+        "CWE-79": [
+          { "node_type": "Call", "pattern": "response\\.getWriter\\(|out\\.print\\(" }
+        ],
+        "CWE-78": [
+          { "node_type": "Call", "pattern": "Runtime\\.exec\\(|ProcessBuilder\\(" }
+        ],
+        "CWE-476": [
+          { "node_type": "Call", "pattern": "\\.\\w+\\s*\\(" }
+        ]
+      }
+    },
+    "generic": {
+      "sanitizers": {
+        "CWE-476": [
+          { "node_type": "ControlStructure", "pattern": "if.*!= null|Objects\\.requireNonNull|Optional\\.of" }
+        ]
+      },
+      "sinks": {
+        "CWE-476": [
+          { "node_type": "Call", "pattern": "\\.\\w+\\s*\\(" }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "repo_id": "example-repo-001",
+    "path": "/path/to/cloned/repo",
+    "language": "python",
+    "ground_truth_cves": ["CWE-89", "CWE-78"]
+  },
+  {
+    "repo_id": "example-repo-002",
+    "path": "/path/to/another/repo",
+    "language": "java",
+    "ground_truth_cves": ["CWE-22"]
+  }
+]
